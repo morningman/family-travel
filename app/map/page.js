@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import destinations from '../../data/destinations.json';
+import ChatModal from '../../components/ChatModal';
 
 const coordsMap = {
   'yosemite':        [37.7459, -119.5332],
@@ -79,6 +80,7 @@ export default function MapPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [mapReady, setMapReady] = useState(false);
+  const [chatDest, setChatDest] = useState(null);
 
   // Load selected destinations
   useEffect(() => {
@@ -89,6 +91,20 @@ export default function MapPage() {
       const defaults = destinations.filter(d => d.selected).map(d => d.id);
       setSelectedIds(new Set(defaults));
     }
+  }, []);
+
+  // Listen for "ask" button clicks from Leaflet popups
+  useEffect(() => {
+    const handler = (e) => {
+      const btn = e.target.closest('[data-ask-dest]');
+      if (btn) {
+        const destId = btn.getAttribute('data-ask-dest');
+        const dest = destinations.find(d => d.id === destId);
+        if (dest) setChatDest(dest);
+      }
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
   }, []);
 
   // Initialize map once
@@ -188,15 +204,16 @@ export default function MapPage() {
       const marker = L.marker(coords, { icon }).addTo(map);
 
       marker.bindPopup(`
-        <div style="min-width:200px;font-family:system-ui">
+        <div style="min-width:220px;font-family:system-ui">
           <h3 style="margin:0 0 4px;font-size:14px">${isSelected ? '⭐ ' : ''}${d.nameCN}</h3>
           <div style="color:#666;font-size:12px;margin-bottom:6px">${d.name}</div>
           <div style="font-size:12px;margin-bottom:4px">${d.description}</div>
           <div style="font-size:11px;color:#888;margin-bottom:4px">📮 ${d.address}</div>
           <div style="font-size:11px;color:#888;margin-bottom:8px">🚗 ${d.driveTime} · ${categoryLabels[d.category] || d.categoryCN}</div>
-          <div style="display:flex;gap:6px">
-            <a href="${d.googleMapsUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#1a73e8;text-decoration:none">📍 Google Maps</a>
-            <a href="${d.amapUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#1a73e8;text-decoration:none">📍 高德地图</a>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <a href="${d.googleMapsUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#4285f4;text-decoration:none;padding:3px 8px;border:1px solid #4285f4;border-radius:4px;white-space:nowrap">📍 Google Maps</a>
+            <a href="${d.amapUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#28a745;text-decoration:none;padding:3px 8px;border:1px solid #28a745;border-radius:4px;white-space:nowrap">📍 高德地图</a>
+            <button data-ask-dest="${d.id}" style="font-size:11px;color:white;background:#7c3aed;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;white-space:nowrap">🤖 问问</button>
           </div>
         </div>
       `);
@@ -266,6 +283,10 @@ export default function MapPage() {
           background: '#e8e8e8',
         }}
       />
+
+      {chatDest && (
+        <ChatModal destination={chatDest} onClose={() => setChatDest(null)} />
+      )}
     </div>
   );
 }

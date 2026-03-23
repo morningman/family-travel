@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import destinations from '../../data/destinations.json';
+import ChatModal from '../../components/ChatModal';
 
 const regionMap = {
   california: { name: '加州（California）', emoji: '☀️' },
@@ -24,6 +25,7 @@ export default function DestinationsPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [loaded, setLoaded] = useState(false);
+  const [chatDest, setChatDest] = useState(null);
 
   // Load selections from localStorage on mount
   useEffect(() => {
@@ -138,6 +140,9 @@ export default function DestinationsPage() {
                     <a href={d.amapUrl} target="_blank" rel="noopener noreferrer" className="map-btn amap">
                       📍 高德地图
                     </a>
+                    <button className="map-btn ask" onClick={() => setChatDest(d)}>
+                      🤖 问问
+                    </button>
                   </div>
                 </div>
               ))}
@@ -152,6 +157,10 @@ export default function DestinationsPage() {
           <h2>没有找到景点</h2>
           <p>试试切换筛选条件</p>
         </div>
+      )}
+
+      {chatDest && (
+        <ChatModal destination={chatDest} onClose={() => setChatDest(null)} />
       )}
     </div>
   );
