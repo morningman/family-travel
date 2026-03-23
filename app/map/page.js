@@ -81,6 +81,7 @@ export default function MapPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [mapReady, setMapReady] = useState(false);
   const [chatDest, setChatDest] = useState(null);
+  const openPopupDestRef = useRef(null);
 
   // Load selected destinations
   useEffect(() => {
@@ -93,14 +94,25 @@ export default function MapPage() {
     }
   }, []);
 
-  // Listen for "ask" button clicks from Leaflet popups
+  // Listen for button clicks from Leaflet popups (ask + select)
   useEffect(() => {
     const handler = (e) => {
-      const btn = e.target.closest('[data-ask-dest]');
-      if (btn) {
-        const destId = btn.getAttribute('data-ask-dest');
+      const askBtn = e.target.closest('[data-ask-dest]');
+      if (askBtn) {
+        const destId = askBtn.getAttribute('data-ask-dest');
         const dest = destinations.find(d => d.id === destId);
         if (dest) setChatDest(dest);
+        return;
+      }
+      const selBtn = e.target.closest('[data-select-dest]');
+      if (selBtn) {
+        const destId = selBtn.getAttribute('data-select-dest');
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          if (next.has(destId)) { next.delete(destId); } else { next.add(destId); }
+          localStorage.setItem('travel-selected-destinations', JSON.stringify([...next]));
+          return next;
+        });
       }
     };
     document.addEventListener('click', handler);
@@ -167,7 +179,10 @@ export default function MapPage() {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
 
-    // Clear existing markers
+    // Save which popup was open before clearing
+    const reopenDestId = openPopupDestRef.current;
+
+    // Clear existing markers (this triggers popupclose, which resets the ref)
     markersRef.current.forEach(m => map.removeLayer(m));
     markersRef.current = [];
 
@@ -204,8 +219,9 @@ export default function MapPage() {
       const marker = L.marker(coords, { icon }).addTo(map);
 
       marker.bindPopup(`
-        <div style="min-width:220px;font-family:system-ui">
-          <h3 style="margin:0 0 4px;font-size:14px">${isSelected ? '⭐ ' : ''}${d.nameCN}</h3>
+        <div style="min-width:220px;font-family:system-ui;position:relative;padding-top:4px">
+          <button data-select-dest="${d.id}" style="position:absolute;top:0;right:0;font-size:11px;color:${isSelected ? '#333' : '#888'};background:${isSelected ? '#f4a261' : '#f5f5f5'};border:1px solid ${isSelected ? '#f4a261' : '#ddd'};padding:3px 10px;border-radius:4px;cursor:pointer;white-space:nowrap">${isSelected ? '⭐ 已选' : '☆ 选择'}</button>
+          <h3 style="margin:0 0 4px;font-size:14px;padding-right:70px">${d.nameCN}</h3>
           <div style="color:#666;font-size:12px;margin-bottom:6px">${d.name}</div>
           <div style="font-size:12px;margin-bottom:4px">${d.description}</div>
           <div style="font-size:11px;color:#888;margin-bottom:4px">📮 ${d.address}</div>
@@ -217,6 +233,9 @@ export default function MapPage() {
           </div>
         </div>
       `);
+
+      marker.on('popupopen', () => { openPopupDestRef.current = d.id; });
+      marker.on('popupclose', () => { openPopupDestRef.current = null; });
 
       markersRef.current.push(marker);
     });
@@ -231,6 +250,14 @@ export default function MapPage() {
       } else if (bounds.length === 1) {
         map.setView(bounds[0], 10);
       }
+    }
+    // Re-open popup if one was open before refresh
+    if (reopenDestId) {
+      const markerToOpen = markersRef.current.find((m, i) => {
+        const fDest = filtered[i];
+        return fDest && fDest.id === reopenDestId;
+      });
+      if (markerToOpen) markerToOpen.openPopup();
     }
   }, [activeFilter, selectedIds, mapReady]);
 

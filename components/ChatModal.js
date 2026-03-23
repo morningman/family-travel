@@ -11,7 +11,9 @@ marked.setOptions({
 });
 
 function MarkdownContent({ content }) {
-  const html = marked.parse(content || '');
+  // Strip markdown image syntax since LLM generates non-existent URLs
+  const cleaned = (content || '').replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
+  const html = marked.parse(cleaned);
   return (
     <div
       className="markdown-body"
@@ -66,7 +68,7 @@ export default function ChatModal({ destination, onClose }) {
 亮点：${destination.highlights?.join('、')}
 驾车时间（从 Sunnyvale, CA 出发）：${destination.driveTime}
 
-请用中文回答用户的问题，提供实用、详细的旅行建议。回答要简洁实用，适合家庭出游参考。使用 Markdown 格式让回答更易读。`;
+请用中文回答用户的问题，提供实用、详细的旅行建议。回答要简洁实用，适合家庭出游参考。使用 Markdown 格式让回答更易读。注意：不要在回答中包含图片链接或图片标签。`;
 
       const res = await fetch('https://api.minimax.chat/v1/text/chatcompletion_v2', {
         method: 'POST',
@@ -178,6 +180,11 @@ export default function ChatModal({ destination, onClose }) {
                           {firstLine.replace(/^#+\s*/, '').slice(0, 60)}
                         </span>
                       )}
+                      {isExpanded && <span style={{ flex: 1 }} />}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', padding: '2px 4px' }}
+                      >🗑️</button>
                     </div>
                     {isExpanded && (
                       <>
